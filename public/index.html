@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Freight Tiger AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .loading-dots{display:inline-flex;align-items:center;gap:6px}
+    .loading-dots .dot{width:8px;height:8px;border-radius:50%;background-color:#9CA3AF;animation:bounce 1.4s infinite ease-in-out both}
+    .loading-dots .dot:nth-child(1){animation-delay:-0.32s}
+    .loading-dots .dot:nth-child(2){animation-delay:-0.16s}
+    @keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+
+    .message{max-width:720px;padding-top:8px!important;padding-bottom:8px!important;margin-top:8px!important;margin-bottom:8px!important}
+    .user-message {margin-left: auto;}
+    .bot-message {margin-right: auto;}
+    .chart-container{margin-top:4px!important;margin-bottom:4px!important;padding:0!important;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .chart-container canvas{max-width:600px!important;max-height:600px!important;width:600px!important;height:600px!important;display:block;margin:0 auto}
+  </style>
+</head>
+<body class="h-screen overflow-hidden bg-gray-50 text-gray-800">
+  <div class="h-full flex">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-white border-r border-gray-200 flex flex-col">
+      <!-- Brand -->
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-1">
+          <img src="ftlogo.png" alt="Logo" class="h-12 w-12 object-contain"/>
+        <span class="text-xl font-semibold tracking-tight">Freight Tiger AI</span>
+      </div>
+
+      <div class="px-4 py-3">
+        <button onclick="startNewChat()" class="w-full inline-flex items-center justify-center rounded-lg bg-amber-600 text-white text-sm font-medium px-3 py-2 hover:bg-amber-700 transition">
+          + New chat
+        </button>
+      </div>
+
+      <!-- Search -->
+      <div class="px-4">
+        <label class="sr-only" for="sidebar-search">Search chats</label>
+        <div class="relative">
+          <input id="sidebar-search" placeholder="Search chats" class="w-full rounded-lg border border-gray-200 bg-gray-50 px-9 py-2 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"/>
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="m21 21-4.3-4.3M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>
+        </div>
+      </div>
+
+      <!-- Spacer -->
+      <div class="flex-1"></div>
+
+      <!-- History -->
+      <div class="px-4 pt-4 pb-2 text-xs uppercase tracking-wide text-gray-500">History</div>
+      <nav id="historyNav" class="overflow-auto px-2 pb-4">
+
+      </nav>
+
+      <!-- User -->
+      <div class="border-t border-gray-100 p-4 flex items-center gap-3">
+        <div class="h-9 w-9 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-700">D</div>
+        <div>
+          <div class="text-sm font-medium">Demo User</div>
+          <div class="text-xs text-gray-500">Logistic executive</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col">
+      <!-- Content -->
+      <section class="flex-1 overflow-y-auto flex flex-col">
+        <!-- Hero (hidden once a message is sent) -->
+        <div id="hero" class="flex-1 flex items-start justify-center pt-48">
+          <div class="max-w-3xl mx-auto px-4 text-center">
+            <h2 class="text-2xl md:text-3xl font-semibold text-gray-700">Good afternoon! How can I help you?</h2>
+
+            <!-- Central input -->
+            <div class="mt-6 max-w-xl mx-auto">
+              <div class="relative">
+                <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                  <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" d="M12 5v14M5 12h14"/></svg>
+                </span>
+                <input id="chatInput" placeholder="eg. How do I track payments page on Freight Tiger?" class="w-full rounded-2xl border border-gray-200 bg-gray-50 pl-11 pr-14 py-4 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"/>
+                <button onclick="sendMessage()" class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-amber-600 text-white hover:bg-amber-700 transition" aria-label="Send">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.6 22 12 3.4 3.4 3 10l12 2-12 2z"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Suggestion chips -->
+            <div class="mt-3 flex flex-wrap gap-2 justify-center">
+              <button onclick="handleSuggestion('Tracking page')" class="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">Tracking page</button>
+              <button onclick="handleSuggestion('Indent creation')" class="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">Indent creation</button>
+              <button onclick="handleSuggestion('Finding delayed indents')" class="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">Finding delayed indents</button>
+              <button onclick="handleSuggestion('Onboard master data')" class="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">Onboard master data</button>
+              <button onclick="handleSuggestion('Find invoice')" class="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">Find invoice</button>
+              <button onclick="handleSuggestion('Trip id')" class="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">Trip id</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat messages area -->
+        <div id="chatMessages" class="flex-1 px-4 pb-6 max-w-3xl mx-auto hidden overflow-y-auto"></div>
+        <div id="error" class="text-red-600 px-4 pb-4 text-center"></div>
+      </section>
+
+      <!-- Chat Input at Bottom (shown when in chat mode) -->
+      <div id="chatInputBottom" class="hidden border-t border-gray-200 bg-white p-4">
+        <div class="max-w-3xl mx-auto">
+          <div class="relative">
+            <input id="chatInputBottomField" placeholder="Type your message..." class="w-full rounded-2xl border border-gray-200 bg-gray-50 pl-4 pr-14 py-3 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"/>
+            <button onclick="sendMessageFromBottom()" class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-600 text-white hover:bg-amber-700 transition" aria-label="Send">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.6 22 12 3.4 3.4 3 10l12 2-12 2z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Define chartJsLoaded in the global scope
+    let chartJsLoaded = false;
+    
+    // Load Chart.js
+    const chartJsScript = document.createElement('script');
+    chartJsScript.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+    chartJsScript.async = true;
+    chartJsScript.onload = () => {
+      console.log('Chart.js loaded');
+      chartJsLoaded = true;
+    };
+    chartJsScript.onerror = () => {
+      document.getElementById('error').textContent = 'Error loading Chart.js';
+    };
+    document.head.appendChild(chartJsScript);
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      let conversationId = crypto.randomUUID();
+      let queryHistory = []; // Store only user queries
+      let chatHistory = []; // Store chat history for sidebar display
+      
+      // Store complete conversations with messages AND chart data
+      let storedConversations = new Map(); // conversationId -> { messages: [], title: string, charts: [] }
+      let currentConversation = { messages: [], title: '', charts: [] };
+      
+      // Global chart management
+      let conversationCharts = new Map(); // conversationId -> Map(canvasId -> chartInstance)
+      let currentCharts = new Map(); // canvasId -> chartInstance for current conversation
+    
+      function addToHistory(query) {
+        // Add to beginning of array (most recent first)
+        chatHistory.unshift(query);
+        // Keep only last 10 queries
+        if (chatHistory.length > 10) {
+          chatHistory = chatHistory.slice(0, 10);
+        }
+        updateHistoryDisplay();
+      }
+
+      function destroyAllChartsForConversation(convId) {
+        const charts = conversationCharts.get(convId);
+        if (charts) {
+          charts.forEach(chart => {
+            try {
+              chart.destroy();
+            } catch (e) {
+              console.warn('Error destroying chart:', e);
+            }
+          });
+          charts.clear();
+        }
+      }
+
+      function destroyCurrentCharts() {
+        currentCharts.forEach(chart => {
+          try {
+            chart.destroy();
+          } catch (e) {
+            console.warn('Error destroying current chart:', e);
+          }
+        });
+        currentCharts.clear();
+      }
+
+      function saveCurrentConversation() {
+        if (currentConversation.messages.length > 0) {
+          // Store chart instances for this conversation
+          conversationCharts.set(conversationId, new Map(currentCharts));
+          
+          storedConversations.set(conversationId, {
+            messages: [...currentConversation.messages],
+            title: currentConversation.title,
+            queryHistory: [...queryHistory],
+            conversationId: conversationId,
+            charts: [...currentConversation.charts]
+          });
+        }
+      }
+
+      function recreateCharts() {
+        // Find all canvas elements in the current chat
+        const chatMessages = document.getElementById('chatMessages');
+        const canvases = chatMessages.querySelectorAll('canvas');
+        
+        console.log('Recreating charts. Found canvases:', canvases.length);
+        
+        canvases.forEach(canvas => {
+          const canvasId = canvas.id;
+          console.log('Processing canvas:', canvasId);
+          
+          if (canvasId && canvas.parentNode) {
+            // Find the corresponding chart data
+            const chartData = currentConversation.charts.find(c => c.canvasId === canvasId);
+            console.log('Chart data found:', !!chartData);
+            
+            if (chartData && chartJsLoaded && canvas.getContext) {
+              try {
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                  console.error('Could not get 2D context for canvas:', canvasId);
+                  return;
+                }
+                
+                // Destroy existing chart if any
+                const existingChart = Chart.getChart(ctx);
+                if (existingChart) {
+                  existingChart.destroy();
+                }
+                
+                // Recreate chart with stored config
+                const newChart = new Chart(ctx, chartData.config);
+                currentCharts.set(canvasId, newChart);
+                
+                console.log('Successfully recreated chart:', canvasId);
+              } catch (e) {
+                console.error('Error recreating chart:', canvasId, e);
+              }
+            } else {
+              console.warn('Cannot recreate chart:', canvasId, {
+                hasChartData: !!chartData,
+                chartJsLoaded,
+                hasGetContext: !!canvas.getContext
+              });
+            }
+          }
+        });
+      }
+
+      function loadConversation(convId) {
+        const conversation = storedConversations.get(convId);
+        if (conversation) {
+          // Save current conversation first
+          saveCurrentConversation();
+          
+          // Destroy current charts
+          destroyCurrentCharts();
+          
+          conversationId = convId;
+          currentConversation = {
+            messages: [...conversation.messages],
+            title: conversation.title,
+            charts: [...conversation.charts]
+          };
+          queryHistory = [...conversation.queryHistory];
+          
+          // Clear current chat display
+          const chatMessages = document.getElementById('chatMessages');
+          chatMessages.innerHTML = '';
+          
+          // Restore all messages
+          currentConversation.messages.forEach(msg => {
+            chatMessages.appendChild(msg.cloneNode(true));
+          });
+          
+          hideHero();
+          
+          // Recreate charts after a short delay to ensure DOM is ready
+          setTimeout(() => {
+            recreateCharts();
+          }, 100);
+          
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+      }
+    
+      function updateHistoryDisplay() {
+        const historyNav = document.getElementById('historyNav');
+        // Clear existing history
+        historyNav.innerHTML = '';
+        
+        // Add stored conversations
+        const conversations = Array.from(storedConversations.values()).reverse(); // Most recent first
+        conversations.forEach((conversation) => {
+          const historyItem = document.createElement('a');
+          historyItem.className = 'block truncate rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 cursor-pointer';
+          historyItem.href = '#';
+          const title = conversation.title || 'New conversation';
+          historyItem.textContent = title.length > 30 ? title.substring(0, 30) + '...' : title;
+          historyItem.title = title; // Show full text on hover
+          historyItem.onclick = (e) => {
+            e.preventDefault();
+            loadConversation(conversation.conversationId);
+          };
+          historyNav.appendChild(historyItem);
+        });
+      }
+    
+      function hideHero() {
+        const hero = document.getElementById('hero');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInputBottom = document.getElementById('chatInputBottom');
+        if (hero) hero.classList.add('hidden');
+        if (chatMessages) chatMessages.classList.remove('hidden');
+        if (chatInputBottom) chatInputBottom.classList.remove('hidden');
+        const section = hero.parentElement;
+        if (section) {
+          section.classList.remove('flex');
+          section.classList.add('block');
+        }
+      }
+    
+      function showHero() {
+        const hero = document.getElementById('hero');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInputBottom = document.getElementById('chatInputBottom');
+        if (hero) hero.classList.remove('hidden');
+        if (chatMessages) chatMessages.classList.add('hidden');
+        if (chatInputBottom) chatInputBottom.classList.add('hidden');
+        const section = hero.parentElement;
+        if (section) {
+          section.classList.remove('block');
+          section.classList.add('flex');
+        }
+      }
+    
+      function fetchChart(message) {
+        const errorDiv = document.getElementById('error');
+        const chatMessages = document.getElementById('chatMessages');
+        errorDiv.textContent = '';
+    
+        hideHero();
+
+        // Add current message to query history
+        queryHistory.push(message);
+        
+        // Set conversation title from first message
+        if (currentConversation.messages.length === 0) {
+          currentConversation.title = message.length > 30 ? message.substring(0, 30) + '...' : message;
+        }
+    
+        const userMessage = document.createElement('div');
+        userMessage.className = 'message user-message';
+        userMessage.innerHTML = '<div class="max-w-[720px] rounded-2xl bg-white border border-gray-200 px-4 py-3 text-sm text-gray-800 shadow-sm">' +
+                               message.replace(/</g, '&lt;') + '</div>';
+        chatMessages.appendChild(userMessage);
+        
+        // Store user message
+        currentConversation.messages.push(userMessage.cloneNode(true));
+        
+        if (currentConversation.messages.length === 1) {
+          saveCurrentConversation();
+          updateHistoryDisplay();
+        }
+
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+        // Prepare message with query history for backend
+        let contextualMessage = message;
+        if (queryHistory.length > 1) {
+          const previousQueries = queryHistory.slice(0, -1).join(', ');
+          contextualMessage = `These were his previous queries: ${previousQueries}. Now he wants: ${message}. So now implement: ${message}`;
+        }
+
+        const currentMessages = [{ role: 'user', content: contextualMessage }];
+        const source = new EventSource(`/api/stream-pie-chart?messages=${encodeURIComponent(JSON.stringify(currentMessages))}&conversation_id=${conversationId}`);
+    
+        let textContent = '';
+        let botMessageElement = null;
+    
+        botMessageElement = document.createElement('div');
+        botMessageElement.className = 'message bot-message';
+        botMessageElement.innerHTML = '<div class="max-w-[720px] px-4 py-3 text-sm text-gray-700"><img src="ftlogo.png" alt="Logo" class="h-9 w-9 object-contain"><span class="loading-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>';
+        chatMessages.appendChild(botMessageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+        source.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+    
+          if (data.error) {
+            errorDiv.textContent = `Error: ${data.error}`;
+            botMessageElement.innerHTML = '<div class="max-w-[720px] rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-700 border border-gray-200">Error: ' + data.error + '</div>';
+            
+            // Store bot error message
+            currentConversation.messages.push(botMessageElement.cloneNode(true));
+            updateHistoryDisplay();
+            
+            source.close();
+            return;
+          }
+    
+          if (data.chunk) {
+            textContent += data.chunk;
+            botMessageElement.innerHTML = '<div class="max-w-[720px] rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-700 border border-gray-200" style="white-space:pre-wrap;">' + textContent + '</div>';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+          }
+    
+          if (data.html && data.done) {
+            source.close();
+    
+            if (data.html.toLowerCase().includes('<canvas')) {
+              if (!chartJsLoaded) {
+                errorDiv.textContent = 'Chart.js not loaded yet. Please try again.';
+                botMessageElement.innerHTML = '<div class="max-w-[720px] rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-700 border border-gray-200">Chart.js not loaded yet. Please try again.</div>';
+                
+                // Store bot error message
+                currentConversation.messages.push(botMessageElement.cloneNode(true));
+                updateHistoryDisplay();
+                
+                return;
+              }
+    
+              const currentChartMessage = document.createElement('div');
+              currentChartMessage.className = 'message bot-message';
+              const chartContainer = document.createElement('div');
+              chartContainer.className = 'chart-container';
+              chartContainer.innerHTML = data.html;
+    
+              // Keep only canvas and scripts
+              const canvas = chartContainer.querySelector('canvas');
+              const scripts = chartContainer.querySelectorAll('script');
+              
+              if (canvas) {
+                // Generate unique canvas ID
+                const canvasId = `chart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                canvas.id = canvasId;
+                canvas.width = 600;
+                canvas.height = 400;
+                canvas.style.width = '100%';
+                canvas.style.height = '100%';
+                
+                // Clear container but preserve canvas and scripts
+                const scriptsArray = Array.from(scripts);
+                const tempDiv = document.createElement('div');
+                tempDiv.appendChild(canvas); // Preserve canvas
+                
+                chartContainer.innerHTML = '';
+                chartContainer.appendChild(tempDiv.firstChild); // Re-add canvas
+                
+                const bubble = document.createElement('div');
+                bubble.className = 'max-w-[720px] rounded-2xl bg-gray-50 px-2 py-2 border border-gray-200 shadow-sm';
+                bubble.appendChild(chartContainer);
+                currentChartMessage.appendChild(bubble);
+                chatMessages.appendChild(currentChartMessage);
+    
+                botMessageElement.innerHTML = '<div class="max-w-[720px] rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-700 border border-gray-200">Chart generated successfully.</div>';
+    
+                // Store both bot messages immediately
+                currentConversation.messages.push(botMessageElement.cloneNode(true));
+                currentConversation.messages.push(currentChartMessage.cloneNode(true));
+                updateHistoryDisplay();
+
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // Process scripts to extract chart configuration
+                let chartConfig = null;
+                let chartCreated = false;
+                
+                for (let script of scriptsArray) {
+                  const scriptText = script.textContent;
+                  console.log('Processing script:', scriptText.substring(0, 200) + '...');
+                  
+                  // Look for Chart.js configuration pattern
+                  if (scriptText.includes('new Chart(') || scriptText.includes('Chart(')) {
+                    try {
+                      // Create a safe execution environment
+                      const uniqueId = `chart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                      
+                      // Modify script to target our specific canvas
+                      let modifiedScript = scriptText;
+                      
+                      // Replace canvas selectors with our specific canvas ID
+                      modifiedScript = modifiedScript.replace(/document\.getElementById\(['"'][^'"']*['"']\)/g, `document.getElementById('${canvasId}')`);
+                      modifiedScript = modifiedScript.replace(/document\.querySelector\(['"']canvas['"']\)/g, `document.getElementById('${canvasId}')`);
+                      modifiedScript = modifiedScript.replace(/\.querySelector\(['"']canvas['"']\)/g, `document.getElementById('${canvasId}')`);
+                      
+                      // Replace ctx references
+                      modifiedScript = modifiedScript.replace(/\bctx\b/g, `ctx_${uniqueId}`);
+                      
+                      // Replace canvas selectors with our specific canvas
+                      modifiedScript = modifiedScript.replace(/document\.getElementById\(['"'][^'"']*['"']\)/g, `document.getElementById('${canvasId}')`);
+                      modifiedScript = modifiedScript.replace(/document\.querySelector\(['"']canvas['"']\)/g, `document.getElementById('${canvasId}')`);
+                      modifiedScript = modifiedScript.replace(/\.querySelector\(['"']canvas['"']\)/g, `document.getElementById('${canvasId}')`);
+                      
+                      console.log('Modified script:', modifiedScript.substring(0, 300) + '...');
+                      
+                      // Set up chart capture
+                      const originalChart = window.Chart;
+                      let capturedConfig = null;
+                      let capturedChart = null;
+                      
+                      window.Chart = function(ctx, config) {
+                        if (ctx && ctx.canvas && ctx.canvas.id === canvasId) {
+                          console.log('Capturing chart config for canvas:', canvasId);
+                          capturedConfig = JSON.parse(JSON.stringify(config));
+                          capturedChart = new originalChart(ctx, config);
+                          return capturedChart;
+                        }
+                        return new originalChart(ctx, config);
+                      };
+                      
+                      // Copy static methods and properties
+                      Object.setPrototypeOf(window.Chart, originalChart);
+                      Object.assign(window.Chart, originalChart);
+                      
+                      // Execute script in an isolated function scope
+                      const executeScript = new Function(modifiedScript);
+                      executeScript();
+                      
+                      // Restore original Chart constructor
+                      window.Chart = originalChart;
+                      
+                      if (capturedConfig && capturedChart) {
+                        chartConfig = capturedConfig;
+                        currentCharts.set(canvasId, capturedChart);
+                        
+                        // Store chart config for recreation
+                        currentConversation.charts.push({
+                          canvasId: canvasId,
+                          config: chartConfig
+                        });
+                        
+                        chartCreated = true;
+                        console.log('Chart created and stored successfully:', canvasId);
+                      }
+                      
+                    } catch (e) {
+                      console.error('Error executing chart script:', e);
+                      console.error('Script content:', scriptText);
+                      errorDiv.textContent = `Error rendering chart: ${e.message}`;
+                    }
+                    break;
+                  }
+                }
+                
+                if (!chartCreated) {
+                  console.warn('No chart was created. Available scripts:', scriptsArray.length);
+                  console.log('Script contents:', scriptsArray.map(s => s.textContent.substring(0, 100)));
+                  
+                  // Fallback: try to create chart directly if we have a canvas
+                  try {
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                      // Create a simple fallback chart
+                      const fallbackConfig = {
+                        type: 'bar',
+                        data: {
+                          labels: ['No Data'],
+                          datasets: [{
+                            label: 'Chart Error',
+                            data: [1],
+                            backgroundColor: ['rgba(255, 99, 132, 0.2)'],
+                            borderColor: ['rgba(255, 99, 132, 1)'],
+                            borderWidth: 1
+                          }]
+                        },
+                        options: {
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            title: {
+                              display: true,
+                              text: 'Chart configuration not found'
+                            }
+                          }
+                        }
+                      };
+                      
+                      const fallbackChart = new Chart(ctx, fallbackConfig);
+                      currentCharts.set(canvasId, fallbackChart);
+                      
+                      currentConversation.charts.push({
+                        canvasId: canvasId,
+                        config: fallbackConfig
+                      });
+                      
+                      console.log('Created fallback chart:', canvasId);
+                    }
+                  } catch (fallbackError) {
+                    console.error('Fallback chart creation failed:', fallbackError);
+                    errorDiv.textContent = 'Warning: Could not create chart visualization';
+                  }
+                }
+              } else {
+                errorDiv.textContent = 'No canvas found in server response.';
+                botMessageElement.innerHTML = '<div class="max-w-[720px] rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-700 border border-gray-200">No chart available.</div>';
+                
+                // Store bot error message
+                currentConversation.messages.push(botMessageElement.cloneNode(true));
+                updateHistoryDisplay();
+              }
+            } else {
+              botMessageElement.innerHTML = '<div class="max-w-[720px] rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-700 border border-gray-200" style="white-space:pre-wrap;">' + (textContent || data.html || 'No visualization available.') + '</div>';
+              
+              // Store bot text message
+              currentConversation.messages.push(botMessageElement.cloneNode(true));
+              updateHistoryDisplay();
+              
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+          }
+        };
+    
+        source.onerror = () => {
+          errorDiv.textContent = 'Error: Failed to connect to the server. Please check your network or try again later.';
+          botMessageElement.innerHTML = '<div class="max-w-[720px] rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-700 border border-gray-200">Error: Failed to connect to the server.</div>';
+          
+          // Store bot error message
+          currentConversation.messages.push(botMessageElement.cloneNode(true));
+          updateHistoryDisplay();
+          
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+          source.close();
+        };
+      }
+    
+      function sendMessage() {
+        const chatInput = document.getElementById('chatInput');
+        const message = chatInput.value.trim();
+        if (message) {
+          fetchChart(message);
+          chatInput.value = '';
+        }
+      }
+
+      function sendMessageFromBottom() {
+        const chatInput = document.getElementById('chatInputBottomField');
+        const message = chatInput.value.trim();
+        if (message) {
+          fetchChart(message);
+          chatInput.value = '';
+        }
+      }
+    
+      function handleSuggestion(text) {
+        const chatInput = document.getElementById('chatInput');
+        chatInput.value = text;
+        sendMessage();
+      }
+    
+      function startNewChat() {
+        // Save current conversation before starting new one
+        saveCurrentConversation();
+        
+        // Destroy current charts
+        destroyCurrentCharts();
+        
+        // Reset for new conversation
+        conversationId = crypto.randomUUID();
+        queryHistory = []; // Clear query history
+        currentConversation = { messages: [], title: '', charts: [] }; // Reset current conversation
+        
+        document.getElementById('chatMessages').innerHTML = '';
+        document.getElementById('error').textContent = '';
+        
+        showHero();
+      }
+    
+      window.sendMessage = sendMessage;
+      window.sendMessageFromBottom = sendMessageFromBottom;
+      window.startNewChat = startNewChat;
+      window.handleSuggestion = handleSuggestion;
+    
+      const chatInput = document.getElementById('chatInput');
+      if (chatInput) {
+        chatInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            sendMessage();
+          }
+        });
+      }
+
+      const chatInputBottom = document.getElementById('chatInputBottomField');
+      if (chatInputBottom) {
+        chatInputBottom.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            sendMessageFromBottom();
+          }
+        });
+      }
+    });
+    </script>
+</body>
+</html>
